@@ -1,0 +1,522 @@
+---
+title: "Kalm data 20 subs"
+author: "Sarah Ricupero"
+date: "4/2/2024"
+output: html_document
+---
+
+#Library
+
+```{r}
+library(tidyverse)
+library(tidyr)
+library(dplyr)
+library(kableExtra)
+library(broom)
+library(reshape2)
+library(ggplot2)
+library(ggpubr)
+```
+
+#RSA - 2 conditions Early & Late
+
+```{r,  message=FALSE, warning = FALSE, echo = F}
+EarlyLateRSAbetween <- read.csv("/Users/sarahricupero/Documents/Thesis/Imaging/RSA early:late/allSimilaritiesBetweenSummary.csv", header=TRUE, sep=",", stringsAsFactors = FALSE)
+
+# Remove empty/unnecessary columns
+EarlyLateRSAbetween <- EarlyLateRSAbetween[-c(4,5,7,8,10,11,13,14,16,17,19,20,22,23,25,26,28,29,31:35)]
+
+#Remove extraneous rois
+EarlyLateRSAbetween <- EarlyLateRSAbetween[-c(4,5,6,8)]
+
+# Reshape data
+EarlyLateBetweenRSAmelt<-melt(EarlyLateRSAbetween, id.vars=c("subjectid","Trial.Type"), 
+                         variable.name="ROI_Cond",            
+                         value.name="RSA_between")
+EarlyLateBetweenRSAmelt$ROI <- gsub("\\_Sim.*", "\2", EarlyLateBetweenRSAmelt$ROI_Cond)
+EarlyLateBetweenRSAmelt$ROI <- str_split_i(EarlyLateBetweenRSAmelt$ROI, "_", 2)
+EarlyLateBetweenRSAmelt[EarlyLateBetweenRSAmelt$ROI == "caudalmiddlefron",5] <- "CMF"
+EarlyLateBetweenRSAmelt[EarlyLateBetweenRSAmelt$ROI == "lateraloccipi",5] <- "LOC"
+EarlyLateBetweenRSAmelt[EarlyLateBetweenRSAmelt$ROI == "precent",5] <- "PCG"
+EarlyLateBetweenRSAmelt[EarlyLateBetweenRSAmelt$ROI == "precun",5] <- "Precuneus"
+EarlyLateBetweenRSAmelt[EarlyLateBetweenRSAmelt$ROI == "superiorparie",5] <- "SPG"
+EarlyLateBetweenRSAmelt[EarlyLateBetweenRSAmelt$ROI == "supramargi",5] <- "SMG"
+
+
+# Plot
+ggplot(EarlyLateBetweenRSAmelt, aes(x=ROI, y=RSA_between)) +
+   geom_boxplot() +
+  theme(plot.title = element_text(size = 18, hjust = 0.5, face = "bold"),
+        axis.text.x = element_text(angle = 90, hjust = 1, size = 18, face = "bold",color = "black"),
+        axis.text.y = element_text(size = 18, face = "bold",color = "black"),
+        axis.title.x = element_text(size = 18, face = "bold"),
+        axis.title.y = element_text(size = 18, face = "bold"),
+        legend.title = element_text(size = 15, face = "bold"),
+        strip.text.x = element_text( size = 18, face = "bold"),
+        legend.text = element_text(size = 13, face = "bold")) + 
+   stat_compare_means(method = "t.test", label = "p.signif", size = 0.5) + 
+   ggtitle("Similarity between Early / Late Trials") + scale_fill_discrete(name = "Condition")
+
+# RSA within
+# Bring in data
+EarlyLateRSAwithin <- read.csv("/Users/sarahricupero/Documents/Thesis/Imaging/RSA early:late/allSimilaritiesWithinSummary.csv", header=TRUE, sep=",", stringsAsFactors = FALSE)
+
+# Remove empty/unnecessary columns
+EarlyLateRSAwithin <- EarlyLateRSAwithin[-c(33:35)]
+# Remove extraneous ROIs
+EarlyLateRSAwithin <- EarlyLateRSAwithin[-c(6:14, 18:20)]
+
+# Reshape data
+EarlyLateWithinRSAmelt<-melt(EarlyLateRSAwithin, id.vars=c("subjectid","Trial.Type"), 
+                         variable.name="ROI_Cond",            
+                         value.name="RSA_within")
+
+EarlyLateWithinRSAmelt$ROI <- str_split_i(EarlyLateWithinRSAmelt$ROI_Cond, "_", 2)
+
+EarlyLateWithinRSAmelt$ROI_Cond <- str_split_i(EarlyLateWithinRSAmelt$ROI_Cond, "_",3)
+# Get rid of Similarity condition, its just the mean of the two conditions
+# Rename Similarity1 to early, Similarity2 to late
+EarlyLateWithinRSAmelt <- EarlyLateWithinRSAmelt[EarlyLateWithinRSAmelt$ROI_Cond != "Similarity",]
+colnames(EarlyLateWithinRSAmelt)[[3]] <- c("Cond")
+EarlyLateWithinRSAmelt$Cond<-ifelse(EarlyLateWithinRSAmelt$Cond == "Similarity1", "Early", "Late")
+
+EarlyLateWithinRSAmelt[EarlyLateWithinRSAmelt$ROI == "caudalmiddlefron",5] <- "CMF"
+EarlyLateWithinRSAmelt[EarlyLateWithinRSAmelt$ROI == "lateraloccipi",5] <- "LOC"
+EarlyLateWithinRSAmelt[EarlyLateWithinRSAmelt$ROI == "precent",5] <- "PCG"
+EarlyLateWithinRSAmelt[EarlyLateWithinRSAmelt$ROI == "precun",5] <- "Precuneus"
+EarlyLateWithinRSAmelt[EarlyLateWithinRSAmelt$ROI == "superiorparie",5] <- "SPG"
+EarlyLateWithinRSAmelt[EarlyLateWithinRSAmelt$ROI == "supramargi",5] <- "SMG"
+
+
+#T-test
+EarlyLateWithinRSAmeltTable<-EarlyLateWithinRSAmelt %>%
+  group_by(ROI) %>%
+  do(tidy(t.test(RSA_within ~ as.factor(Cond), data = .)))
+EarlyLateWithinRSAmeltTable
+
+# Plot
+ggplot(EarlyLateWithinRSAmelt, aes(x=ROI, y=RSA_within, fill = as.factor(Cond))) +
+   geom_boxplot() +
+  theme(plot.title = element_text(size = 18, hjust = 0.5, face = "bold"),
+        axis.text.x = element_text(angle = 90, hjust = 1, size = 18, face = "bold",color = "black"),
+        axis.text.y = element_text(size = 18, face = "bold",color = "black"),
+        axis.title.x = element_text(size = 18, face = "bold"),
+        axis.title.y = element_text(size = 18, face = "bold"),
+        legend.title = element_text(size = 15, face = "bold"),
+        strip.text.x = element_text( size = 18, face = "bold"),
+        legend.text = element_text(size = 13, face = "bold")) + 
+   stat_compare_means(method = "t.test", label = "p.signif", size = 0.5) + 
+   ggtitle("Single Trial Represenational Similarity\n Early vs Late Trials") + scale_fill_discrete(name = "Cond")
+
+# RSA distinctiveness
+# Bring in data
+EarlyLateRSAdistinct <- read.csv("/Users/sarahricupero/Documents/Thesis/Imaging/RSA early:late/distinctivenessSummary.csv", header=TRUE, sep=",", stringsAsFactors = FALSE)
+
+# Remove empty/unnecessary columns
+EarlyLateRSAdistinct <- EarlyLateRSAdistinct[-c(5,8,11,14,17,20,23,26,29,32:35)]
+# Remove extraneous ROIs
+EarlyLateRSAdistinct <- EarlyLateRSAdistinct[-c(5:10,13,14)]
+
+# Reshape data
+EarlyLateDistinctRSAmelt<-melt(EarlyLateRSAdistinct, id.vars=c("subjectid","Trial.Type"), 
+                         variable.name="ROI_Cond",            
+                         value.name="RSA_distinct")
+
+EarlyLateDistinctRSAmelt$ROI <- str_split_i(EarlyLateDistinctRSAmelt$ROI_Cond, "_", 2)
+
+EarlyLateDistinctRSAmelt$ROI_Cond <- str_split_i(EarlyLateDistinctRSAmelt$ROI_Cond, "_",3)
+
+# Rename Distinctiveness1 to early, Distinctiveness2 to late
+
+colnames(EarlyLateDistinctRSAmelt)[[3]] <- c("Cond")
+EarlyLateDistinctRSAmelt$Cond<-ifelse(EarlyLateDistinctRSAmelt$Cond == "Distinctiveness1", "Early", "Late")
+
+EarlyLateDistinctRSAmelt[EarlyLateDistinctRSAmelt$ROI == "caudalmiddlefron",5] <- "CMF"
+EarlyLateDistinctRSAmelt[EarlyLateDistinctRSAmelt$ROI == "lateraloccipi",5] <- "LOC"
+EarlyLateDistinctRSAmelt[EarlyLateDistinctRSAmelt$ROI == "precent",5] <- "PCG"
+EarlyLateDistinctRSAmelt[EarlyLateDistinctRSAmelt$ROI == "precun",5] <- "Precuneus"
+EarlyLateDistinctRSAmelt[EarlyLateDistinctRSAmelt$ROI == "superiorparie",5] <- "SPG"
+EarlyLateDistinctRSAmelt[EarlyLateDistinctRSAmelt$ROI == "supramargi",5] <- "SMG"
+
+#T-test
+EarlyLateDistinctRSAmeltTable<-EarlyLateDistinctRSAmelt %>%
+  group_by(ROI) %>%
+  do(tidy(t.test(RSA_distinct ~ as.factor(Cond), data = .)))
+EarlyLateDistinctRSAmeltTable
+
+# Plot
+ggplot(EarlyLateDistinctRSAmelt, aes(x=ROI, y=RSA_distinct, fill = as.factor(Cond))) +
+   geom_boxplot() +
+  theme(plot.title = element_text(size = 18, hjust = 0.5, face = "bold"),
+        axis.text.x = element_text(angle = 90, hjust = 1, size = 18, face = "bold",color = "black"),
+        axis.text.y = element_text(size = 18, face = "bold",color = "black"),
+        axis.title.x = element_text(size = 18, face = "bold"),
+        axis.title.y = element_text(size = 18, face = "bold"),
+        legend.title = element_text(size = 15, face = "bold"),
+        strip.text.x = element_text( size = 18, face = "bold"),
+        legend.text = element_text(size = 13, face = "bold")) + 
+   stat_compare_means(method = "t.test", label = "p.signif", size = 0.5) + 
+   ggtitle("Single Trial Distinctiveness \n Early vs Late Trials") + scale_fill_discrete(name = "Cond")
+
+### Caudal middle frontal, inferior parietal, and lateral occipital are significant!
+
+```
+
+#RSA - 2 conditions Novel & Learned
+
+```{r,  message=FALSE, warning = FALSE, echo = F}
+LearnedRSAbetween <- read.csv("/Users/sarahricupero/Documents/Thesis/Imaging/RSA learned/allSimilaritiesBetweenSummary.csv", header=TRUE, sep=",", stringsAsFactors = FALSE)
+
+# Remove empty/unnecessary columns
+LearnedRSAbetween <- LearnedRSAbetween[-c(4,5,7,8,10,11,13,14,16,17,19,20,22,23,25,26,28,29,31:35)]
+LearnedRSAbetween <- LearnedRSAbetween[-c(4,5,6,8)]
+
+# Reshape data
+LearnedBetweenRSAmelt<-melt(LearnedRSAbetween, id.vars=c("subjectid","Trial.Type"), 
+                         variable.name="ROI_Cond",            
+                         value.name="RSA_between")
+
+LearnedBetweenRSAmelt$ROI <- str_split_i(LearnedBetweenRSAmelt$ROI_Cond, "_", 2)
+LearnedBetweenRSAmelt$ROI_Cond <- str_split_i(LearnedBetweenRSAmelt$ROI_Cond, "_",3)
+colnames(LearnedBetweenRSAmelt)[[3]] <- c("Cond")
+
+# Plot
+ggplot(LearnedBetweenRSAmelt, aes(x=ROI, y=RSA_between)) +
+   geom_boxplot() +
+  theme(plot.title = element_text(size = 18, hjust = 0.5, face = "bold"),
+        axis.text.x = element_text(angle = 90, hjust = 1, size = 18, face = "bold",color = "black"),
+        axis.text.y = element_text(size = 18, face = "bold",color = "black"),
+        axis.title.x = element_text(size = 18, face = "bold"),
+        axis.title.y = element_text(size = 18, face = "bold"),
+        legend.title = element_text(size = 15, face = "bold"),
+        strip.text.x = element_text( size = 18, face = "bold"),
+        legend.text = element_text(size = 13, face = "bold")) + 
+   stat_compare_means(method = "t.test", label = "p.signif", size = 0.5) + 
+   ggtitle("Representational Similarity Analysis \n Learned and Novel Sequences") + scale_fill_discrete(name = "Cond")
+
+# RSA within
+# Bring in data
+LearnedRSAwithin <- read.csv("/Users/sarahricupero/Documents/Thesis/Imaging/RSA learned/allSimilaritiesWithinSummary.csv", header=TRUE, sep=",", stringsAsFactors = FALSE)
+
+# Remove empty/unnecessary columns
+LearnedRSAwithin <- LearnedRSAwithin[-c(33:35)]
+LearnedRSAwithin <- LearnedRSAwithin[-c(6:14,18:20)]
+
+# Reshape data
+LearnedWithinRSAmelt<-melt(LearnedRSAwithin, id.vars=c("subjectid","Trial.Type"), 
+                         variable.name="ROI_Cond",            
+                         value.name="RSA_within")
+
+LearnedWithinRSAmelt$ROI <- str_split_i(LearnedWithinRSAmelt$ROI_Cond, "_", 2)
+
+LearnedWithinRSAmelt$ROI_Cond <- str_split_i(LearnedWithinRSAmelt$ROI_Cond, "_",3)
+# Get rid of Similarity condition, its just the mean of the two conditions
+# Rename Similarity1 to early, Similarity2 to late
+LearnedWithinRSAmelt <- LearnedWithinRSAmelt[LearnedWithinRSAmelt$ROI_Cond != "Similarity",]
+colnames(LearnedWithinRSAmelt)[[3]] <- c("Cond")
+LearnedWithinRSAmelt$Cond<-ifelse(LearnedWithinRSAmelt$Cond == "Similarity1", "Learned", "Novel")
+
+#T-test
+LearnedWithinRSAmeltTable<-LearnedWithinRSAmelt %>%
+  group_by(ROI) %>%
+  do(tidy(t.test(RSA_within ~ as.factor(Cond), data = .)))
+LearnedWithinRSAmeltTable
+
+LearnedWithinRSAmelt[LearnedWithinRSAmelt$ROI == "caudalmiddlefron",5] <- "CMF"
+LearnedWithinRSAmelt[LearnedWithinRSAmelt$ROI == "lateraloccipi",5] <- "LOC"
+LearnedWithinRSAmelt[LearnedWithinRSAmelt$ROI == "precent",5] <- "PCG"
+LearnedWithinRSAmelt[LearnedWithinRSAmelt$ROI == "precun",5] <- "Precuneus"
+LearnedWithinRSAmelt[LearnedWithinRSAmelt$ROI == "superiorparie",5] <- "SPG"
+LearnedWithinRSAmelt[LearnedWithinRSAmelt$ROI == "supramargi",5] <- "SMG"
+
+
+# Plot
+ggplot(LearnedWithinRSAmelt, aes(x=ROI, y=RSA_within, fill = as.factor(Cond))) +
+   geom_boxplot() +
+  theme(plot.title = element_text(size = 18, hjust = 0.5, face = "bold"),
+        axis.text.x = element_text(angle = 90, hjust = 1, size = 18, face = "bold",color = "black"),
+        axis.text.y = element_text(size = 18, face = "bold",color = "black"),
+        axis.title.x = element_text(size = 18, face = "bold"),
+        axis.title.y = element_text(size = 18, face = "bold"),
+        legend.title = element_text(size = 15, face = "bold"),
+        strip.text.x = element_text( size = 18, face = "bold"),
+        legend.text = element_text(size = 13, face = "bold")) + 
+   stat_compare_means(method = "t.test", label = "p.signif", size = 0.5) + 
+   ggtitle("Single Trial Represenational Similarity\n Learned vs Novel Trials") + scale_fill_discrete(name = "Cond")
+
+# RSA distinctiveness
+# Bring in data
+LearnedRSAdistinct <- read.csv("/Users/sarahricupero/Documents/Thesis/Imaging/RSA learned/distinctivenessSummary.csv", header=TRUE, sep=",", stringsAsFactors = FALSE)
+
+# Remove empty/unnecessary columns
+LearnedRSAdistinct <- LearnedRSAdistinct[-c(5,8,11,14,17,20,23,26,29,32:35)]
+LearnedRSAdistinct <- LearnedRSAdistinct[-c(5:10,13,14)]
+
+# Reshape data
+LearnedDistinctRSAmelt<-melt(LearnedRSAdistinct, id.vars=c("subjectid","Trial.Type"), 
+                         variable.name="ROI_Cond",            
+                         value.name="RSA_distinct")
+
+LearnedDistinctRSAmelt$ROI <- str_split_i(LearnedDistinctRSAmelt$ROI_Cond, "_", 2)
+
+LearnedDistinctRSAmelt$ROI_Cond <- str_split_i(LearnedDistinctRSAmelt$ROI_Cond, "_",3)
+
+# Rename Distinctiveness1 to learned, Distinctiveness2 to novel
+
+colnames(LearnedDistinctRSAmelt)[[3]] <- c("Cond")
+LearnedDistinctRSAmelt$Cond<-ifelse(LearnedDistinctRSAmelt$Cond == "Distinctiveness1", "Learned", "Novel")
+
+#T-test above 0
+LearnedDistinctRSAmelt %>%
+  group_by(ROI, Cond) %>%
+  do(tidy(t.test(RSA_distinct~1, alternative=c("greater"), data=.)))
+
+LearnedDistinctRSAmelt[LearnedDistinctRSAmelt$ROI == "caudalmiddlefron",5] <- "CMF"
+LearnedDistinctRSAmelt[LearnedDistinctRSAmelt$ROI == "lateraloccipi",5] <- "LOC"
+LearnedDistinctRSAmelt[LearnedDistinctRSAmelt$ROI == "precent",5] <- "PCG"
+LearnedDistinctRSAmelt[LearnedDistinctRSAmelt$ROI == "precun",5] <- "Precuneus"
+LearnedDistinctRSAmelt[LearnedDistinctRSAmelt$ROI == "superiorparie",5] <- "SPG"
+LearnedDistinctRSAmelt[LearnedDistinctRSAmelt$ROI == "supramargi",5] <- "SMG"
+
+#T-test
+LearnedDistinctRSAmeltTable<-LearnedDistinctRSAmelt %>%
+  group_by(ROI) %>%
+  do(tidy(t.test(RSA_distinct ~ as.factor(Cond), data = .)))
+LearnedDistinctRSAmeltTable
+
+# Plot
+ggplot(LearnedDistinctRSAmelt, aes(x=ROI, y=RSA_distinct, fill = as.factor(Cond))) +
+   geom_boxplot() +
+  theme(plot.title = element_text(size = 18, hjust = 0.5, face = "bold"),
+        axis.text.x = element_text(angle = 90, hjust = 1, size = 18, face = "bold",color = "black"),
+        axis.text.y = element_text(size = 18, face = "bold",color = "black"),
+        axis.title.x = element_text(size = 18, face = "bold"),
+        axis.title.y = element_text(size = 18, face = "bold"),
+        legend.title = element_text(size = 15, face = "bold"),
+        strip.text.x = element_text( size = 18, face = "bold"),
+        legend.text = element_text(size = 13, face = "bold")) + 
+   stat_compare_means(method = "t.test", label = "p.signif", size = 0.5) + 
+   ggtitle("Single Trial Distinctiveness \n Learned vs Novel Trials") + scale_fill_discrete(name = "Cond")
+
+```
+
+#RSA - 2 conditions Early & Late for Learned sequences
+
+```{r,  message=FALSE, warning = FALSE, echo = F}
+EarlyLateLearnedRSAbetween <- read.csv("/Users/sarahricupero/Documents/Thesis/Imaging/RSA learned early:late/allSimilaritiesBetweenSummary.csv", header=TRUE, sep=",", stringsAsFactors = FALSE)
+
+# Remove empty/unnecessary columns
+EarlyLateLearnedRSAbetween <-EarlyLateLearnedRSAbetween[-c(4,5,7,8,10,11,13,14,16,17,19,20,22,23,25,26,28,29,31:35)]
+EarlyLateLearnedRSAbetween <- EarlyLateLearnedRSAbetween[-c(4:6,8)]
+
+# Reshape data
+EarlyLateLearnedBetweenRSAmelt<-melt(EarlyLateLearnedRSAbetween, id.vars=c("subjectid","Trial.Type"), 
+                         variable.name="ROI_Cond",            
+                         value.name="RSA_between")
+
+EarlyLateLearnedBetweenRSAmelt$ROI <- str_split_i(EarlyLateLearnedBetweenRSAmelt$ROI_Cond, "_", 2)
+
+EarlyLateLearnedBetweenRSAmelt$ROI_Cond <- str_split_i(EarlyLateLearnedBetweenRSAmelt$ROI_Cond, "_",3)
+
+
+# Plot
+ggplot(EarlyLateLearnedBetweenRSAmelt, aes(x=ROI, y=RSA_between)) +
+   geom_boxplot() +
+  theme(plot.title = element_text(size = 18, hjust = 0.5, face = "bold"),
+        axis.text.x = element_text(angle = 90, hjust = 1, size = 18, face = "bold",color = "black"),
+        axis.text.y = element_text(size = 18, face = "bold",color = "black"),
+        axis.title.x = element_text(size = 18, face = "bold"),
+        axis.title.y = element_text(size = 18, face = "bold"),
+        legend.title = element_text(size = 15, face = "bold"),
+        strip.text.x = element_text( size = 18, face = "bold"),
+        legend.text = element_text(size = 13, face = "bold")) + 
+   stat_compare_means(method = "t.test", label = "p.signif", size = 0.5) + 
+   ggtitle("Represenational Similarity Between\n Early learned and Late learned trials") + scale_fill_discrete(name = "Cond")
+
+# RSA within
+# Bring in data
+EarlyLateLearnedRSAwithin <- read.csv("/Users/sarahricupero/Documents/Thesis/Imaging/RSA learned early:late/allSimilaritiesWithinSummary.csv", header=TRUE, sep=",", stringsAsFactors = FALSE)
+
+# Remove empty/unnecessary columns
+EarlyLateLearnedRSAwithin <- EarlyLateLearnedRSAwithin[-c(33:35)]
+EarlyLateLearnedRSAwithin <- EarlyLateLearnedRSAwithin[-c(6:14,18:20)]
+
+# Reshape data
+EarlyLateLearnedWithinRSAmelt<-melt(EarlyLateLearnedRSAwithin, id.vars=c("subjectid","Trial.Type"), 
+                         variable.name="ROI_Cond",            
+                         value.name="RSA_within")
+
+EarlyLateLearnedWithinRSAmelt$ROI <- str_split_i(EarlyLateLearnedWithinRSAmelt$ROI_Cond, "_", 2)
+
+EarlyLateLearnedWithinRSAmelt$ROI_Cond <- str_split_i(EarlyLateLearnedWithinRSAmelt$ROI_Cond, "_",3)
+# Get rid of Similarity condition, its just the mean of the two conditions
+# Rename Similarity1 to early, Similarity2 to late
+EarlyLateLearnedWithinRSAmelt <- EarlyLateLearnedWithinRSAmelt[EarlyLateLearnedWithinRSAmelt$ROI_Cond != "Similarity",]
+colnames(EarlyLateLearnedWithinRSAmelt)[[3]] <- c("Cond")
+EarlyLateLearnedWithinRSAmelt$Cond<-ifelse(EarlyLateLearnedWithinRSAmelt$Cond == "Similarity1", "Early", "Late")
+
+#T-test
+EarlyLateLearnedWithinRSAmeltTable<-EarlyLateLearnedWithinRSAmelt %>%
+  group_by(ROI) %>%
+  do(tidy(t.test(RSA_within ~ as.factor(Cond), data = .)))
+EarlyLateLearnedWithinRSAmeltTable
+
+# Plot
+ggplot(EarlyLateLearnedWithinRSAmelt, aes(x=ROI, y=RSA_within, fill = as.factor(Cond))) +
+   geom_boxplot() +
+  theme(plot.title = element_text(size = 18, hjust = 0.5, face = "bold"),
+        axis.text.x = element_text(angle = 90, hjust = 1, size = 18, face = "bold",color = "black"),
+        axis.text.y = element_text(size = 18, face = "bold",color = "black"),
+        axis.title.x = element_text(size = 18, face = "bold"),
+        axis.title.y = element_text(size = 18, face = "bold"),
+        legend.title = element_text(size = 15, face = "bold"),
+        strip.text.x = element_text( size = 18, face = "bold"),
+        legend.text = element_text(size = 13, face = "bold")) + 
+   stat_compare_means(method = "t.test", label = "p.signif", size = 0.5) + 
+   ggtitle("Single Trial Represenattional Similarity\n Early vs Late Learned Trials") + scale_fill_discrete(name = "Cond")
+
+# RSA distinctiveness
+# Bring in data
+EarlyLateLearnedRSAdistinct <- read.csv("/Users/sarahricupero/Documents/Thesis/Imaging/RSA learned early:late/distinctivenessSummary.csv", header=TRUE, sep=",", stringsAsFactors = FALSE)
+
+# Remove empty/unnecessary columns
+EarlyLateLearnedRSAdistinct <- EarlyLateLearnedRSAdistinct[-c(5,8,11,14,17,20,23,26,29,32:35)]
+EarlyLateLearnedRSAdistinct <- EarlyLateLearnedRSAdistinct[-c(5:10,13,14)]
+
+# Reshape data
+EarlyLateLearnedDistinctRSAmelt<-melt(EarlyLateLearnedRSAdistinct, id.vars=c("subjectid","Trial.Type"), 
+                         variable.name="ROI_Cond",            
+                         value.name="RSA_distinct")
+
+EarlyLateLearnedDistinctRSAmelt$ROI <- str_split_i(EarlyLateLearnedDistinctRSAmelt$ROI_Cond, "_", 2)
+
+EarlyLateLearnedDistinctRSAmelt$ROI_Cond <- str_split_i(EarlyLateLearnedDistinctRSAmelt$ROI_Cond, "_",3)
+
+# Rename Distinctiveness1 to early, Distinctiveness2 to late
+
+colnames(EarlyLateLearnedDistinctRSAmelt)[[3]] <- c("Cond")
+EarlyLateLearnedDistinctRSAmelt$Cond<-ifelse(EarlyLateLearnedDistinctRSAmelt$Cond == "Distinctiveness1", "Early", "Late")
+
+#T-test
+EarlyLateLearnedDistinctRSAmeltTable<-EarlyLateLearnedDistinctRSAmelt %>%
+  group_by(ROI) %>%
+  do(tidy(t.test(RSA_distinct ~ as.factor(Cond), data = .)))
+EarlyLateLearnedDistinctRSAmeltTable
+
+# Plot
+ggplot(EarlyLateLearnedDistinctRSAmelt, aes(x=ROI, y=RSA_distinct, fill = as.factor(Cond))) +
+   geom_boxplot() +
+  theme(plot.title = element_text(size = 18, hjust = 0.5, face = "bold"),
+        axis.text.x = element_text(angle = 90, hjust = 1, size = 18, face = "bold",color = "black"),
+        axis.text.y = element_text(size = 18, face = "bold",color = "black"),
+        axis.title.x = element_text(size = 18, face = "bold"),
+        axis.title.y = element_text(size = 18, face = "bold"),
+        legend.title = element_text(size = 15, face = "bold"),
+        strip.text.x = element_text( size = 18, face = "bold"),
+        legend.text = element_text(size = 13, face = "bold")) + 
+   stat_compare_means(method = "t.test", label = "p.signif", size = 0.5) + 
+   ggtitle("Single Trial Distinctiveness \n Early vs Late Learned Trials") + scale_fill_discrete(name = "Cond")
+
+
+
+```
+#MVPA -- Novel vs Learned with each learned sequence alone as well as combined.
+
+```{r,  message=FALSE, warning = FALSE, echo = F}
+NovelLearnedMVPA <- read.csv("/Users/sarahricupero/Documents/Thesis/Imaging/allClassAccSummary.csv", header=TRUE, sep=",", stringsAsFactors = FALSE, nrows = 20)
+
+NovelLearnedMVPA <- NovelLearnedMVPA[-c(4:6, 8,13:15)]
+
+
+NovelLearnedMVPAmelt<-melt(NovelLearnedMVPA, id.vars=c("subjectid","Trial.Type"), 
+                         variable.name="ROI",            
+                         value.name="classification")
+
+NovelLearnedMVPAmelt$ROI <- str_split_i(NovelLearnedMVPAmelt$ROI, "_", 2)
+NovelLearnedMVPAmelt[NovelLearnedMVPAmelt$ROI == "caudalmiddlefron",3] <- "CMF"
+NovelLearnedMVPAmelt[NovelLearnedMVPAmelt$ROI == "lateraloccipi",3] <- "LOC"
+NovelLearnedMVPAmelt[NovelLearnedMVPAmelt$ROI == "precent",3] <- "PCG"
+NovelLearnedMVPAmelt[NovelLearnedMVPAmelt$ROI == "precun",3] <- "Precuneus"
+NovelLearnedMVPAmelt[NovelLearnedMVPAmelt$ROI == "superiorparie",3] <- "SPG"
+NovelLearnedMVPAmelt[NovelLearnedMVPAmelt$ROI == "supramargi",3] <- "SMG"
+
+ggplot(NovelLearnedMVPAmelt, aes(x=ROI, y=classification)) +
+   geom_boxplot() +
+   geom_hline(yintercept = 0.5, color="red") +
+  theme(plot.title = element_text(size = 18, hjust = 0.5, face = "bold"),
+        axis.text.x = element_text(angle = 90, hjust = 1, size = 18, face = "bold",color = "black"),
+        axis.text.y = element_text(size = 18, face = "bold",color = "black"),
+        axis.title.x = element_text(size = 18, face = "bold"),
+        axis.title.y = element_text(size = 18, face = "bold"),
+        legend.title = element_text(size = 15, face = "bold"),
+        strip.text.x = element_text( size = 18, face = "bold"),
+        legend.text = element_text(size = 13, face = "bold")) + 
+   stat_compare_means(method = "t.test", label = "p.signif", size = 0.5) + 
+   ggtitle("Classification between Novel and Learned Sequences") 
+ 
+NovelLearnedMVPA2 <- read.csv("/Users/sarahricupero/Documents/Thesis/Imaging/allClassAccSummary2.csv", header=TRUE, sep=",", stringsAsFactors = FALSE, nrows = 20)
+
+NovelLearnedMVPA2 <- NovelLearnedMVPA2[-c(4:6, 8,13:15)]
+
+
+NovelLearnedMVPA2melt<-melt(NovelLearnedMVPA2, id.vars=c("subjectid","Trial.Type"), 
+                         variable.name="ROI",            
+                         value.name="classification")
+
+NovelLearnedMVPA2melt$ROI <- str_split_i(NovelLearnedMVPA2melt$ROI, "_", 2)
+NovelLearnedMVPA2melt[NovelLearnedMVPA2melt$ROI == "caudalmiddlefron",3] <- "CMF"
+NovelLearnedMVPA2melt[NovelLearnedMVPA2melt$ROI == "lateraloccipi",3] <- "LOC"
+NovelLearnedMVPA2melt[NovelLearnedMVPA2melt$ROI == "precent",3] <- "PCG"
+NovelLearnedMVPA2melt[NovelLearnedMVPA2melt$ROI == "precun",3] <- "Precuneus"
+NovelLearnedMVPA2melt[NovelLearnedMVPA2melt$ROI == "superiorparie",3] <- "SPG"
+NovelLearnedMVPA2melt[NovelLearnedMVPA2melt$ROI == "supramargi",3] <- "SMG"
+
+ggplot(NovelLearnedMVPA2melt, aes(x=ROI, y=classification)) +
+   geom_boxplot() +
+   geom_hline(yintercept = 0.5, color="red") +
+  theme(plot.title = element_text(size = 18, hjust = 0.5, face = "bold"),
+        axis.text.x = element_text(angle = 90, hjust = 1, size = 18, face = "bold",color = "black"),
+        axis.text.y = element_text(size = 18, face = "bold",color = "black"),
+        axis.title.x = element_text(size = 18, face = "bold"),
+        axis.title.y = element_text(size = 18, face = "bold"),
+        legend.title = element_text(size = 15, face = "bold"),
+        strip.text.x = element_text( size = 18, face = "bold"),
+        legend.text = element_text(size = 13, face = "bold")) + 
+   stat_compare_means(method = "t.test", label = "p.signif", size = 0.5) + 
+   ggtitle("Classification between Novel and Learned Sequences") 
+ 
+NovelLearnedMVPA3 <- read.csv("/Users/sarahricupero/Documents/Thesis/Imaging/allClassAccSummary3.csv", header=TRUE, sep=",", stringsAsFactors = FALSE, nrows = 20)
+
+NovelLearnedMVPA3 <- NovelLearnedMVPA3[-c(4:6, 8,13:15)]
+
+
+NovelLearnedMVPA3melt<-melt(NovelLearnedMVPA3, id.vars=c("subjectid","Trial.Type"), 
+                         variable.name="ROI",            
+                         value.name="classification")
+
+NovelLearnedMVPA3melt$ROI <- str_split_i(NovelLearnedMVPA3melt$ROI, "_", 2)
+NovelLearnedMVPA3melt[NovelLearnedMVPA3melt$ROI == "caudalmiddlefron",3] <- "CMF"
+NovelLearnedMVPA3melt[NovelLearnedMVPA3melt$ROI == "lateraloccipi",3] <- "LOC"
+NovelLearnedMVPA3melt[NovelLearnedMVPA3melt$ROI == "precent",3] <- "PCG"
+NovelLearnedMVPA3melt[NovelLearnedMVPA3melt$ROI == "precun",3] <- "Precuneus"
+NovelLearnedMVPA3melt[NovelLearnedMVPA3melt$ROI == "superiorparie",3] <- "SPG"
+NovelLearnedMVPA3melt[NovelLearnedMVPA3melt$ROI == "supramargi",3] <- "SMG"
+
+
+ggplot(NovelLearnedMVPA3melt, aes(x=ROI, y=classification)) +
+   geom_boxplot() +
+   geom_hline(yintercept = 0.5, color="red") +
+  theme(plot.title = element_text(size = 18, hjust = 0.5, face = "bold"),
+        axis.text.x = element_text(angle = 90, hjust = 1, size = 18, face = "bold",color = "black"),
+        axis.text.y = element_text(size = 18, face = "bold",color = "black"),
+        axis.title.x = element_text(size = 18, face = "bold"),
+        axis.title.y = element_text(size = 18, face = "bold"),
+        legend.title = element_text(size = 15, face = "bold"),
+        strip.text.x = element_text( size = 18, face = "bold"),
+        legend.text = element_text(size = 13, face = "bold")) + 
+   stat_compare_means(method = "t.test", label = "p.signif", size = 0.5) + 
+   ggtitle("Classification between Novel and Learned Sequences") 
+
+
+
+```
